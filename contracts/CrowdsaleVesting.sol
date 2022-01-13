@@ -16,24 +16,21 @@ contract CrowdsaleVesting is Ownable {
     IERC20 public ddao;
     IERC20 public addao;
 
+    mapping(address => uint256) public tokensClaimed;
+    mapping(address => bool) private blacklist;
+
     uint256 public roundSeed = 0;
     uint256 public roundPrivate1 = 1;
     uint256 public roundPrivate2 = 2;
 
-    mapping(address => uint256) public vestedAmount;
-    mapping(address => uint256) public tokensClaimed;
-    mapping(address => bool) private blacklist;
-
     uint256 public startDate;
-    uint256 public oneMonth = 30 days;
-
-    uint256 public totalVested;
-
     uint256 public lockupPeriod = 0;
     // Vesting periods are set in months
     uint256 public vestingPeriodSeed = 24;
     uint256 public vestingPeriodPrivate1 = 18;
     uint256 public vestingPeriodPrivate2 = 12;
+
+    uint256 public oneMonth = 30 days;
 
     constructor(
         address _ddao,
@@ -65,17 +62,19 @@ contract CrowdsaleVesting is Ownable {
         view
         returns (uint256)
     {
-        if (unlockedTokens(_address, _round) > 0) {
-            return unlockedTokens(_address, _round) - tokensClaimed[_address];
+        if (calculateUnlockedTokens(_address, _round, 0) > 0) {
+            return
+                calculateUnlockedTokens(_address, _round, 0) -
+                tokensClaimed[_address];
         }
         return 0;
     }
 
-    function unlockedTokens(address _address, uint256 _round)
-        public
-        view
-        returns (uint256)
-    {
+    function calculateUnlockedTokens(
+        address _address,
+        uint256 _round,
+        uint256 _date
+    ) public view returns (uint256) {
         require(
             _round == roundSeed ||
                 _round == roundPrivate1 ||
@@ -84,41 +83,49 @@ contract CrowdsaleVesting is Ownable {
         );
         uint256 result;
 
-        if (block.timestamp <= (startDate + lockupPeriod)) {
+        uint256 timestamp = block.timestamp;
+        if (_date != 0) {
+            timestamp = _date;
+        }
+
+        uint256 vestedAmount = addao.balanceOf(_address);
+        if (vestedAmount == 0) {
             return result;
         }
+
+        if (timestamp <= (startDate + lockupPeriod)) {
+            return result;
+        }
+
         if (_round == roundSeed) {
-            uint256 monthsPassed = ((block.timestamp -
-                (startDate + lockupPeriod)) / oneMonth) + 1;
-            monthsPassed = monthsPassed > vestingPeriodSeed
+            uint256 secondsPassed = timestamp - (startDate + lockupPeriod);
+            secondsPassed = secondsPassed > vestingPeriodSeed * oneMonth
                 ? vestingPeriodSeed
-                : monthsPassed;
+                : secondsPassed;
 
             result +=
-                (vestedAmount[_address] * monthsPassed) /
-                vestingPeriodSeed;
+                (vestedAmount * secondsPassed) /
+                (vestingPeriodSeed * oneMonth);
         }
         if (_round == roundPrivate1) {
-            uint256 monthsPassed = ((block.timestamp -
-                (startDate + lockupPeriod)) / oneMonth) + 1;
-            monthsPassed = monthsPassed > vestingPeriodPrivate1
+            uint256 secondsPassed = timestamp - (startDate + lockupPeriod);
+            secondsPassed = secondsPassed > vestingPeriodPrivate1 * oneMonth
                 ? vestingPeriodPrivate1
-                : monthsPassed;
+                : secondsPassed;
 
             result +=
-                (vestedAmount[_address] * monthsPassed) /
-                vestingPeriodPrivate1;
+                (vestedAmount * secondsPassed) /
+                (vestingPeriodPrivate1 * oneMonth);
         }
         if (_round == roundPrivate2) {
-            uint256 monthsPassed = ((block.timestamp -
-                (startDate + lockupPeriod)) / oneMonth) + 1;
-            monthsPassed = monthsPassed > vestingPeriodPrivate2
+            uint256 secondsPassed = timestamp - (startDate + lockupPeriod);
+            secondsPassed = secondsPassed > vestingPeriodPrivate2 * oneMonth
                 ? vestingPeriodPrivate2
-                : monthsPassed;
+                : secondsPassed;
 
             result +=
-                (vestedAmount[_address] * monthsPassed) /
-                vestingPeriodPrivate2;
+                (vestedAmount * secondsPassed) /
+                (vestingPeriodPrivate2 * oneMonth);
         }
 
         return result;
@@ -135,21 +142,19 @@ contract CrowdsaleVesting is Ownable {
         blacklist[_address] = true;
     }
 
-    function adminWithdraw(IERC20 _ddao) external onlyOwner {
-        if (_ddao == ddao) {
-            uint256 withdrawAmount = ddao.balanceOf(address(this)) -
-                totalVested;
-            if (withdrawAmount > 0) {
-                ddao.safeTransfer(address(msg.sender), withdrawAmount);
-            }
-        }
-        if (_ddao == IERC20(address(0))) {
-            payable(owner()).transfer(address(this).balance);
-        } else {
-            uint256 withdrawAmount = _ddao.balanceOf(address(this));
-            if (withdrawAmount > 0) {
-                _ddao.safeTransfer(address(msg.sender), withdrawAmount);
-            }
-        }
+    function unlockAddress(address _address) public onlyOwner {
+        blacklist[_address] = false;
+    }
+
+    function adminGetCoin(uint256 amount) public onlyOwner {
+        payable(msg.sender).transfer(amount);
+    }
+
+    function adminGetToken(address tokenAddress, uint256 amount)
+        public
+        onlyOwner
+    {
+        IERC20 ierc20Token = IERC20(tokenAddress);
+        ierc20Token.safeTransfer(msg.sender, amount);
     }
 }

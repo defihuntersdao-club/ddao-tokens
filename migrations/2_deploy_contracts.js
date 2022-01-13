@@ -13,12 +13,9 @@ module.exports = async (deployer, network, accounts) => {
   
     await deployer.deploy(ERC20Base, 'DEFI HUNTERS DAO Token', 'aDDAO', '18');
     let addaoInstance = await ERC20Base.deployed();
-    await addaoInstance.mint(accounts[0], '5880000000000000000000000');
+    await addaoInstance.mint(accounts[0], '5000000000000000000000000');
     addaoAddress = addaoInstance.address;
     
-    // let currentBlockNumber = await web3.eth.getBlockNumber();
-    // let startBlockNumber = currentBlockNumber + 282240 // 1 Month ~ Rinkeby 4 * 60 * 24 * 30 = blocks per minutes * hour * day * month
-    // let startBlockNumber = currentBlockNumber + 1924171 // 1 Month ~ Polygon 27.27 * 60 * 24 * 30 = blocks per minutes * hour * day * month
     let timestamp = 1646092800 // 1 Mar.
     await deployer.deploy(CrowdsaleVesting, ddaoAddress, addaoAddress, timestamp);
     let crowdsaleVestingInstance = await CrowdsaleVesting.deployed();
@@ -30,4 +27,5 @@ module.exports = async (deployer, network, accounts) => {
     console.log("aDDAO - ", addaoAddress)
     console.log("CrowdsaleVesting - ", crowdsaleAddress)
     console.log("__Network__ - ", network)
+    console.log('accounts[0] - ', accounts[0])
   };

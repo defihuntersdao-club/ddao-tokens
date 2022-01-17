@@ -5,18 +5,19 @@ pragma solidity 0.8.3;
 import "./token/ERC20/IERC20.sol";
 import "./token/ERC20/SafeERC20.sol";
 import "./utils/Ownable.sol";
+import "./Participants.sol";
 
 import "hardhat/console.sol";
 
 /**
  * @notice Allows each token to be associated with a creator.
  */
-contract CrowdsaleVesting is Ownable {
+contract CrowdsaleVesting is Ownable, Participants {
     using SafeERC20 for IERC20;
     IERC20 public ddao;
     IERC20 public addao;
 
-    mapping(address => uint256) public tokensClaimed;
+    mapping(address => mapping(uint256 => uint256)) public tokensClaimed;
     mapping(address => bool) private blacklist;
 
     uint256 public roundSeed = 0;
@@ -50,7 +51,7 @@ contract CrowdsaleVesting is Ownable {
         uint256 tokensToSend = availableToClaim(msg.sender, _round);
         require(tokensToSend > 0, "Nothing to claim");
 
-        tokensClaimed[msg.sender] += tokensToSend;
+        tokensClaimed[msg.sender][_round] += tokensToSend;
 
         addao.safeTransferFrom(msg.sender, address(this), tokensToSend);
 
@@ -65,7 +66,7 @@ contract CrowdsaleVesting is Ownable {
         if (calculateUnlockedTokens(_address, _round, 0) > 0) {
             return
                 calculateUnlockedTokens(_address, _round, 0) -
-                tokensClaimed[_address];
+                tokensClaimed[_address][_round];
         }
         return 0;
     }
@@ -93,38 +94,47 @@ contract CrowdsaleVesting is Ownable {
             return result;
         }
 
+        // Inner information by wallet address
+        uint256 availableAmount;
+
         if (timestamp <= (startDate + lockupPeriod)) {
             return result;
         }
 
         if (_round == roundSeed) {
+            availableAmount = seed[_address];
+
             uint256 secondsPassed = timestamp - (startDate + lockupPeriod);
             secondsPassed = secondsPassed > vestingPeriodSeed * oneMonth
                 ? vestingPeriodSeed
                 : secondsPassed;
 
             result +=
-                (vestedAmount * secondsPassed) /
+                (availableAmount * secondsPassed) /
                 (vestingPeriodSeed * oneMonth);
         }
         if (_round == roundPrivate1) {
+            availableAmount = private1[_address];
+
             uint256 secondsPassed = timestamp - (startDate + lockupPeriod);
             secondsPassed = secondsPassed > vestingPeriodPrivate1 * oneMonth
                 ? vestingPeriodPrivate1
                 : secondsPassed;
 
             result +=
-                (vestedAmount * secondsPassed) /
+                (availableAmount * secondsPassed) /
                 (vestingPeriodPrivate1 * oneMonth);
         }
         if (_round == roundPrivate2) {
+            availableAmount = private2[_address];
+
             uint256 secondsPassed = timestamp - (startDate + lockupPeriod);
             secondsPassed = secondsPassed > vestingPeriodPrivate2 * oneMonth
                 ? vestingPeriodPrivate2
                 : secondsPassed;
 
             result +=
-                (vestedAmount * secondsPassed) /
+                (availableAmount * secondsPassed) /
                 (vestingPeriodPrivate2 * oneMonth);
         }
 

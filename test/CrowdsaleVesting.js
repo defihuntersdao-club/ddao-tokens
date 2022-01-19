@@ -1,5 +1,4 @@
-const { expect } = require("chai");
-const { assert, artifacts } = require("hardhat");
+const { expect, assert } = require("chai");
 const truffleAssert = require('truffle-assertions');
 const { increaseTime } = require('./utils/timeManipulation');
 
@@ -10,26 +9,29 @@ const { increaseTime } = require('./utils/timeManipulation');
 const bn1e18 = ethers.BigNumber.from((10**18).toString());
 const timestamp = 1646092800; // 1 Mar.
 
+const oneMonth = 2592000;
 const sixMonthPass = 1661644800;
 const nineMonthPass = 1669420800;
 const twelveMonthPass = 1677196800;
 const eighteenMonthPass = 1692748800;
 const twentyFourMonthPass = 1708300800;
 
+let owner;
+let payer1;
+let payer2;
+let payer3;
+let account0;
+let account1;
+
+let crowdsaleVesting;
+let ddaoToken;
+let addaoToken;
+
 describe("CrowdsaleVesting", function () {
-    let owner;
-    let payer1;
-    let payer2;
-    let payer3;
-
-    let crowdsaleVesting;
-    let ddaoToken;
-    let addaoToken;
-
-    const provider = ethers.getDefaultProvider();
 
     beforeEach(async function() {
         [owner, payer1, payer2, payer3] = await ethers.getSigners();
+        [account0, account1] = await web3.eth.getAccounts();
 
         CrowdsaleVesting = await ethers.getContractFactory('CrowdsaleVesting');
         ERC20 = await ethers.getContractFactory('ERC20Base');
@@ -80,5 +82,50 @@ describe("CrowdsaleVesting", function () {
             const oneSecondPass = timestamp + 1;
             expect((await crowdsaleVesting.calculateUnlockedTokens(payer1.address, 0, oneSecondPass)).toString()).to.be.equal('10046939300411522');
         });
+        it("Should return 0 as timestamp less then startDate", async function() {
+            console.log('timestamp', (await web3.eth.getBlock('latest').timestamp));
+            
+            await addaoToken.connect(owner).approve(payer1.address, ethers.utils.parseEther('120000').toString());
+            await addaoToken.connect(payer1).transferFrom(owner.address, payer1.address, ethers.utils.parseEther('120000').toString());
+            await addaoToken.connect(payer1).approve(crowdsaleVesting.address, ethers.utils.parseEther('120000').toString());
+
+            const startDatePluslockupPeriod = +(await crowdsaleVesting.startDate()) + +(await crowdsaleVesting.lockupPeriod());
+            
+            expect((await crowdsaleVesting.calculateUnlockedTokens(payer1.address, 0, startDatePluslockupPeriod - 1)).toString()).to.be.equal('0');
+        });
+        
     })
+
+    describe("adminGetCoin", function() {
+        it("Should be Fail as unreach to send Eth", async function() {
+            await truffleAssert.reverts(web3.eth.sendTransaction({from: account0, to: crowdsaleVesting.address, value: web3.utils.toWei('100', "ether")}), "Transaction reverted: function selector was not recognized and there's no fallback nor receive function");
+        });
+        it("Should be Fail as unreach to call transfer", async function() {
+            await truffleAssert.reverts(crowdsaleVesting.adminGetCoin(ethers.utils.parseEther('100').toString()), "Transaction reverted: function call failed to execute");
+        });
+    });
+
+    describe("adminGetToken", function() {
+        it("Should be send token", async function() {            
+            await addaoToken.connect(owner).approve(payer1.address, ethers.utils.parseEther('120000').toString());
+            await addaoToken.connect(payer1).transferFrom(owner.address, payer1.address, ethers.utils.parseEther('120000').toString());
+            await addaoToken.connect(payer1).approve(crowdsaleVesting.address, ethers.utils.parseEther('120000').toString());
+
+            await increaseTime({ ethers }, ethers.BigNumber.from(oneMonth).mul(5)); // Move {{n}} months
+
+            await crowdsaleVesting.connect(payer1).claim(0);
+            
+            const balanceAddaoBefore = await addaoToken.balanceOf(owner.address);
+
+            await crowdsaleVesting.adminGetToken(addaoToken.address, ethers.utils.parseEther('100').toString());
+            const balanceAddaoAffter = await addaoToken.balanceOf(owner.address);
+            
+            expect(ethers.BigNumber.from(balanceAddaoAffter).sub(balanceAddaoBefore).toString()).to.be.equal(ethers.utils.parseEther('100').toString());
+        });
+        // it("Should return 0 due to balance", async function() {            
+            // await increaseTime({ ethers }, ethers.BigNumber.from(oneMonth).mul(12)); // Move {{n}} months
+            // const currentTimestamp = (await web3.eth.getBlock('latest')).timestamp;
+            // expect(await crowdsaleVesting.calculateUnlockedTokens(payer1.address, 0, currentTimestamp)).to.be.equal('0');
+        // });
+    });
 });

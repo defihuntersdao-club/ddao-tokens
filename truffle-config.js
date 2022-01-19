@@ -134,6 +134,6 @@
    plugins: ["truffle-plugin-verify", "solidity-coverage"],
    api_keys: {
      etherscan: process.env.ETHERSCAN_API_KEY_RINKEBY
-   }
+   },
  }
  

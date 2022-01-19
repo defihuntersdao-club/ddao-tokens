@@ -1,5 +1,6 @@
-require("@nomiclabs/hardhat-waffle");
 require('solidity-coverage');
+require("@nomiclabs/hardhat-truffle5");
+require("@nomiclabs/hardhat-waffle");
 
 const path = require('path');
 const envPath = path.join(__dirname, './.env');
@@ -11,13 +12,12 @@ require('dotenv').config({ path: envPath });
 
 module.exports = {
   solidity: "0.8.3",
-
   networks: {
     hardhat: {
       forking: {
         url: `https://eth-rinkeby.alchemyapi.io/v2/${process.env.ALCHEMY_KEY_RINKEBY}`,
-        accounts: [process.env.PRIVATE_KEY],
-      }
+        blockNumber: 10000000,
+      },
     },
     rinkeby: {
         url: `https://eth-kovan.alchemyapi.io/v2/${process.env.ALCHEMY_KEY_RINKEBY}`,

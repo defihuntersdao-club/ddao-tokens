@@ -84,9 +84,15 @@ contract CrowdsaleVesting is Ownable, Participants {
         );
         uint256 result;
 
-        uint256 timestamp = block.timestamp;
+        uint256 timestamp;
         if (_date != 0) {
             timestamp = _date;
+        } else {
+            timestamp = block.timestamp;
+        }
+
+        if (timestamp <= startDate + lockupPeriod) {
+            return result;
         }
 
         uint256 vestedAmount = addao.balanceOf(_address);
@@ -96,10 +102,6 @@ contract CrowdsaleVesting is Ownable, Participants {
 
         // Inner information by wallet address
         uint256 availableAmount;
-
-        if (timestamp <= (startDate + lockupPeriod)) {
-            return result;
-        }
 
         if (_round == roundSeed) {
             availableAmount = seed[_address];

@@ -13,7 +13,7 @@
     "migrate-ropsten": "truffle migrate --network ropsten --f 2 -to 2 --compile-all --reset",
     "verify-ropsten": "truffle run verify CrowdsaleVesting ERC20Base --network ropsten",
     "test": "npx hardhat test",
-    "test-cover": "npx hardhat coverage"
+    "test-cover": "npx hardhat coverage --solcoverjs ./.solcover.js"
   },
   "devDependencies": {
     "@chainlink/contracts": "^0.2.2",

@@ -13,16 +13,16 @@ contract Participants is Ownable {
     mapping(address => uint256) public private2;
 
     constructor() {
-        // ****** For tests only ******
-        seed[
-            0x70997970C51812dc3A010C7d01b50e0d17dc79C8
-        ] = 625000000000000000000000; //           625000 DDAO | $ 100000
-        private1[
-            0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
-        ] = 31250000000000000000000; //            31250 DDAO | $ 10000
-        private2[
-            0x90F79bf6EB2c4f870365E785982E1f101E93b906
-        ] = 2170212765957400000000; //  2170.2127659574 DDAO | $ 1020
+        // ****** For tests only - Should be comment in deploy ******
+        // seed[
+        //     0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+        // ] = 625000000000000000000000; //           625000 DDAO | $ 100000
+        // private1[
+        //     0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
+        // ] = 31250000000000000000000; //            31250 DDAO | $ 10000
+        // private2[
+        //     0x90F79bf6EB2c4f870365E785982E1f101E93b906
+        // ] = 2170212765957400000000; //  2170.2127659574 DDAO | $ 1020
         // ****** For tests only ^^^ ******
 
         seed[

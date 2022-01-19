@@ -57,13 +57,13 @@ describe("CrowdsaleVesting", function () {
 
     describe("claim", function() {
         it("Should not claim as balance 0.", async function() {
-            await truffleAssert.reverts(crowdsaleVesting.connect(payer2).claim(0), "Nothing to claim");
+            await truffleAssert.reverts(crowdsaleVesting.connect(payer2).claim(0), "CrowdsaleVesting: Nothing to claim");
         });
     })
     
     describe("calculateUnlockedTokens", function() {
         it("Should not calculate. Round 100 isn't exist", async function() {
-            await truffleAssert.reverts(crowdsaleVesting.calculateUnlockedTokens(payer1.address, 100, 0), "CrowdsaleVesting: this round has not supported");
+            await truffleAssert.reverts(crowdsaleVesting.calculateUnlockedTokens(payer1.address, 100, 0), "CrowdsaleVesting: This round has not supported");
         });
         it("Should be half of available to claim on the middle of vesting at seed round", async function() {
             await addaoToken.transfer(payer1.address, '625000000000000000000000');
@@ -105,13 +105,34 @@ describe("CrowdsaleVesting", function () {
         });
     });
 
-    describe("adminGetToken", function() {
-        it("Should be send token", async function() {            
+    describe("__increaseTime__",  function() {
+        it("Increase time for 6 months", async function() {
+            const currentTimestamp = (await web3.eth.getBlock('latest')).timestamp;
+            await increaseTime({ ethers }, ethers.BigNumber.from(oneMonth).mul(6)); // Move {{n}} months
+            expect((await web3.eth.getBlock('latest')).timestamp).to.be.equal(currentTimestamp + ethers.BigNumber.from(oneMonth).mul(6).toNumber());
+        });
+
+    });
+
+    describe("claim", function() {
+        it("Should be able to claim", async function() {
             await addaoToken.connect(owner).approve(payer1.address, ethers.utils.parseEther('120000').toString());
             await addaoToken.connect(payer1).transferFrom(owner.address, payer1.address, ethers.utils.parseEther('120000').toString());
             await addaoToken.connect(payer1).approve(crowdsaleVesting.address, ethers.utils.parseEther('120000').toString());
 
-            await increaseTime({ ethers }, ethers.BigNumber.from(oneMonth).mul(5)); // Move {{n}} months
+            const balanceDdaoTokenBefore = (await ddaoToken.balanceOf(payer1.address)).toString();
+            await crowdsaleVesting.connect(payer1).claim(0);
+            const balanceDdaoTokenAfter = (await ddaoToken.balanceOf(payer1.address)).toString();
+            
+            expect(Number(balanceDdaoTokenAfter)).to.be.greaterThan(Number(balanceDdaoTokenBefore));
+        });
+    });
+
+    describe("adminGetToken", function() {
+        it("Should send token", async function() {            
+            await addaoToken.connect(owner).approve(payer1.address, ethers.utils.parseEther('120000').toString());
+            await addaoToken.connect(payer1).transferFrom(owner.address, payer1.address, ethers.utils.parseEther('120000').toString());
+            await addaoToken.connect(payer1).approve(crowdsaleVesting.address, ethers.utils.parseEther('120000').toString());
 
             await crowdsaleVesting.connect(payer1).claim(0);
             
@@ -122,10 +143,48 @@ describe("CrowdsaleVesting", function () {
             
             expect(ethers.BigNumber.from(balanceAddaoAffter).sub(balanceAddaoBefore).toString()).to.be.equal(ethers.utils.parseEther('100').toString());
         });
-        // it("Should return 0 due to balance", async function() {            
-            // await increaseTime({ ethers }, ethers.BigNumber.from(oneMonth).mul(12)); // Move {{n}} months
-            // const currentTimestamp = (await web3.eth.getBlock('latest')).timestamp;
-            // expect(await crowdsaleVesting.calculateUnlockedTokens(payer1.address, 0, currentTimestamp)).to.be.equal('0');
-        // });
+    });
+
+    describe("calculateUnlockedTokens", function() {
+        it("Should return 0 due to balance", async function() {            
+            const currentTimestamp = (await web3.eth.getBlock('latest')).timestamp;
+            expect((await crowdsaleVesting.calculateUnlockedTokens(payer1.address, 0, currentTimestamp)).toString()).to.be.equal('0');
+        });
+    });
+
+    describe("claimTokens", function() {
+        it("Should claim and get amounts of ddao", async function() {            
+            const balanceDdaoBefore = await ddaoToken.balanceOf(owner.address);
+            const availableToClaim = await ddaoToken.balanceOf(crowdsaleVesting.address);            
+            await crowdsaleVesting.claimTokens(ddaoToken.address);            
+            expect((await ddaoToken.balanceOf(owner.address)).toString()).to.be.equal(ethers.BigNumber.from(balanceDdaoBefore).add(availableToClaim).toString());
+        });
+    });
+
+    describe("lockAddress", function() {
+        it("Should be locked and could not claim", async function() {    
+            await addaoToken.connect(owner).approve(payer1.address, ethers.utils.parseEther('120000').toString());
+            await addaoToken.connect(payer1).transferFrom(owner.address, payer1.address, ethers.utils.parseEther('120000').toString());
+            await addaoToken.connect(payer1).approve(crowdsaleVesting.address, ethers.utils.parseEther('120000').toString());
+            
+            await crowdsaleVesting.lockAddress(payer1.address);            
+            assert.equal(true, await crowdsaleVesting.blacklist(payer1.address)); 
+     
+            await truffleAssert.reverts(crowdsaleVesting.connect(payer1).claim(0), "CrowdsaleVesting: This wallet address has been blocked");
+        });
+    });
+
+    describe("unlockAddress", function() {
+        it("Should be unlocked", async function() {    
+            await addaoToken.connect(owner).approve(payer1.address, ethers.utils.parseEther('120000').toString());
+            await addaoToken.connect(payer1).transferFrom(owner.address, payer1.address, ethers.utils.parseEther('120000').toString());
+            await addaoToken.connect(payer1).approve(crowdsaleVesting.address, ethers.utils.parseEther('120000').toString());
+
+            await crowdsaleVesting.lockAddress(payer1.address);            
+            assert.equal(true, await crowdsaleVesting.blacklist(payer1.address));
+
+            await crowdsaleVesting.unlockAddress(payer1.address);            
+            assert.equal(false, await crowdsaleVesting.blacklist(payer1.address));
+        });
     });
 });

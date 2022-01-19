@@ -18,7 +18,7 @@ contract CrowdsaleVesting is Ownable, Participants {
     IERC20 public addao;
 
     mapping(address => mapping(uint256 => uint256)) public tokensClaimed;
-    mapping(address => bool) private blacklist;
+    mapping(address => bool) public blacklist;
 
     uint256 public roundSeed = 0;
     uint256 public roundPrivate1 = 1;
@@ -38,10 +38,6 @@ contract CrowdsaleVesting is Ownable, Participants {
         address _addao,
         uint256 _startDate
     ) {
-        require(
-            block.timestamp < _startDate,
-            "startDate must be in the future"
-        );
         ddao = IERC20(_ddao);
         addao = IERC20(_addao);
         startDate = _startDate;
@@ -49,7 +45,12 @@ contract CrowdsaleVesting is Ownable, Participants {
 
     function claim(uint256 _round) public {
         uint256 tokensToSend = availableToClaim(msg.sender, _round);
-        require(tokensToSend > 0, "Nothing to claim");
+        require(tokensToSend > 0, "CrowdsaleVesting: Nothing to claim");
+
+        require(
+            !blacklist[msg.sender],
+            "CrowdsaleVesting: This wallet address has been blocked"
+        );
 
         tokensClaimed[msg.sender][_round] += tokensToSend;
 
@@ -80,7 +81,7 @@ contract CrowdsaleVesting is Ownable, Participants {
             _round == roundSeed ||
                 _round == roundPrivate1 ||
                 _round == roundPrivate2,
-            "CrowdsaleVesting: this round has not supported"
+            "CrowdsaleVesting: This round has not supported"
         );
         uint256 result;
 
